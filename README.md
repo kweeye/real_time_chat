@@ -1,1 +1,3 @@
 # simple_chat
+
+I've developed a real-time chatting application using Node.js, HTML, Socket.IO, and MySQL. With Node.js powering the backend, I've ensured efficient handling of server-side operations and seamless communication between clients. HTML provides a simple yet effective user interface for the chatting experience. Socket.IO enables real-time bidirectional event-based communication, ensuring instant message delivery and updates for users. Plus, by integrating MySQL, I've added a robust database layer for storing and managing chat history. Together, these technologies create a smooth, interactive chatting platform for users to connect and communicate in real time.
