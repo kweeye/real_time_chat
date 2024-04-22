@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>CHATMAL</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" href="https://thapyay.riosportsmm.com/dist/img/favicon.png" />
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.2/css/all.min.css"
+    integrity="sha512-HK5fgLBL+xu6dm/Ii3z4xhlSUyZgTT9tuc/hSrtw6uzJOvgRr2a9jyxxT1ely+B+xFAmJKVSTbpM/CuL7qxO8w==" crossorigin="anonymous" />
+    <style>
+        /* Set height of the grid so .sidenav can be 100% (adjust if needed) */
+        .row.content {
+            height: 93vh;
+        }
+
+        /* Set gray background color and 100% height */
+        .sidenav {
+            background-color: #f1f1f1;
+            height: 100%;
+            overflow-y: scroll;
+        }
+
+        .float-left {
+            float: left!important;
+        }
+        .chat-li {
+            height: 45px;
+        }
+        .success {
+            background-color: #008000;
+        }
+        .danger{
+            background-color: red;
+        }
+        .userchat {
+            border: 1px solid #eee;
+            border-radius: 2px;;
+            background-color: #eee;
+            padding-left: 4px;
+            padding-right: 4px;
+        }
+        .adminchat {
+            border: 1px solid #00acee;
+            border-radius: 2px;;
+            background-color: #00acee;
+            padding-left: 4px;
+            padding-right: 4px;
+            color: #ffffff;
+
+        }
+
+        /* Set black background color, white text and some padding */
+        footer {
+            background-color: #555;
+            color: white;
+            padding: 15px;
+        }
+
+        /* On small screens, set height to 'auto' for sidenav and grid */
+        @media screen and (max-width: 767px) {
+            .sidenav {
+                height: auto;
+                padding: 15px;
+            }
+
+            .row.content {
+                height: auto;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container-fluid" id="app">
+        <div class="row content">
+            <div class="col-sm-3 sidenav">
+                <h4 style="font-weight: bolder;font-size: xx-large;font-family: -webkit-body;text-align: center;">CHATMAL</h4><hr style="border-top: 1px solid #aaa8a8;">
+                <ul class="nav nav-pills nav-stacked" style="margin-bottom:5%;">
+                    <li class="list-group-item" style="margin-top:2%;" v-for="user in users" @click="chatFriend(user)">
+                        <i class="fas fa-user-tie" style="font-size: 18px;color: #333;"></i>
+                        <span style="padding-top: inherit;margin-left: 5px;">{{user.name}}</span>
+                        <span class="badge text-uppercase" :class="{'success':user.status == 'new', 'danger':user.status != 'new'}" v-if="user.status != 0">{{user.status}}</span>
+                        <span class="badge badge-secondary text-uppercase" v-if="user.status == 0">{{ formatDate(user.date) }}</span>
+                    </li>
+                </ul>
+                <div v-if="users.length <= 0" style="text-align: center;margin-top: 65%;">
+                    <i class="fas fa-comment-slash" style="font-size: xx-large;"></i><br>
+                    <span style="font-style: normal;font-family: inherit;">Empty Current Chat Users</span>
+                </div>
+            </div>
+
+            <div class="col-sm-9" >
+                <h4 v-if="chatOpen">
+                    <small>Chat With {{chatWith}}</small>
+                </h4>
+                <hr v-if="chatOpen">
+                <div class="card mt-4" v-if="chatOpen" style="max-height: 550px;overflow-y: scroll;">
+                    <ul class="list-group list-group-flush text-right">
+                        <li style="border: none;" class="list-group-item" v-for="history in historys" :class="{'chat-li':history.type === 'user'}">
+                            <span style="font-size: 16px;" :class="{'float-left':history.type === 'user'}">
+                                <small v-if="history.type != 'admin'">{{chatWith}}:</small>
+                                <span :class="{'userchat': history.type != 'admin', 'adminchat': history.type === 'admin'}">{{history.message}}</span>
+                                <small v-if="history.type === 'admin'" >: Me</small>
+                            </span>
+                        </li>
+                    </ul>
+                    <ul class="list-group list-group-flush text-right">
+                        <li style="border: none;" class="list-group-item" v-for="message in messages" :class="{'chat-li':message.type === 1}">
+                            <span :class="{'float-left':message.type === 1}">
+                                <small v-if="message.type === 1">{{message.user}} :</small>
+                                <span :class="{'userchat': message.type == 1, 'adminchat': message.type != 1}">{{message.message}}</span>
+                                <small v-if="message.type != 1">:{{message.user}}</small>
+                            </span>
+                        </li>
+                    </ul>
+                </div>
+                <div v-if="typing"><small v-if="room == typingRoom" class="text-white">{{typing}} is typing</small></div>
+                <div class="card-body" v-if="chatOpen">
+                    <form @submit.prevent="send">
+                        <div class="form-group">
+                            <input type="text" class="form-control" v-model="newMessage"
+                                placeholder="Enter message here">
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="container-fluid">
+        <strong>Copyright © 2020-2021 <a href="https://kweeye.tech">Kwee Ye Tech</a>.</strong>
+        All rights reserved.
+    </footer>
+
+</body>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/vue/2.6.10/vue.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.21.1/axios.min.js" integrity="sha512-bZS47S7sPOxkjU/4Bt0zrhEtWx0y0CRkhEp8IckzK+ltifIIE9EMIMTuT/mEzoIMewUINruDBIR/jJnbguonqQ==" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/moment@2.26.0/moment.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+
+<script>
+    var socket = io();
+    let vue = new Vue({
+        el: '#app',
+
+        data: {
+            newMessage: null,
+            messages: [],
+            historys: [],
+            users: [],
+            online: [],
+            friend: [],
+            typing: false,
+            username: null,
+            ready: false,
+            info: [],
+            chatOpen: false,
+            chatWith: '',
+            room: '',
+            typingRoom: '',
+            connections: 0,
+        },
+
+        created() {
+            window.onbeforeunload = () => {
+                if(this.room != ""){
+                    socket.emit('leave', {"name": this.username, "room": this.room});
+                }
+            }
+
+            socket.on('message', (data) => {
+                this.messages.push({
+                    message: data.message,
+                    type: 1,
+                    user: data.user,
+                });
+            });
+
+            socket.on('typing', (data) => {
+                this.typing = data.name;
+                this.typingRoom = data.room
+            });
+
+            socket.on('stopTyping', () => {
+                this.typing = false;
+            });
+
+            socket.on('user-list', (data) => {
+                if(data.status == "new"){
+                    this.users.unshift(data)
+                }else{
+                    this.users.forEach(function (key, value) {
+                        if(key.room == data.room){
+                            key.status = data.status
+                        }
+                    })
+                }
+            });
+
+            socket.on('connections', (data) => {
+                this.connections = data;
+            });
+        },
+
+        watch: {
+            newMessage(value) {
+                value ? socket.emit('typing', {"name": this.username, "room": this.room}) : socket.emit('stopTyping', {"name": this.username, "room": this.room})
+            }
+        },
+
+        methods: {
+            send() {
+                this.messages.push({
+                    message: this.newMessage,
+                    type: 0,
+                    user: 'Me',
+                });
+                let room_id = this.room
+                this.users.forEach(function (key, value) {
+                        if(key.room == room_id){
+                            console.log(room_id)
+                            key.status = 0
+                        }
+                })
+                socket.emit('chat-message', {
+                    id: this.room,
+                    message: this.newMessage,
+                    user: this.username
+                });
+                this.newMessage = null;
+            },
+
+            chatFriend(data) {
+                let vm = this
+                vm.chatOpen = true;
+                vm.messages = []
+                vm.room = data.room
+                vm.chatWith = data.name
+                axios.post('https://chatmal.codetoyou.com/get-message', {
+                    id: data.room,
+                })
+                .then(function (response) {
+                    vm.historys = response.data
+                    socket.emit('joinRoom', {"name": vm.username, "room": data.room})
+                    let room_id = vm.room
+                    vm.users.forEach(function (key, value) {
+                            if(key.room == room_id){
+                                console.log(room_id)
+                                key.status = 0
+                            }
+                    })
+                })
+                .catch(function (error) {
+                    console.log(error);
+                });
+
+            },
+
+            addUser(){
+                this.ready = true
+                let vm = this
+                axios.post('https://chatmal.codetoyou.com/user', {
+                    id: vm.username,
+                })
+                .then(function (response) {
+                    vm.users = response.data
+                    socket.emit('joined', vm.username)
+                })
+                .catch(function (error) {
+                    console.log(error);
+                });
+            },
+
+            isOnline: function(data) {
+                let vm = this
+                if(vm.online.includes(data)){
+                    return "Friend"
+                }else{
+                    return "No Friend"
+                }
+            },
+
+            getUser() {
+                let vm = this
+                axios.get('https://chatmal.codetoyou.com/current-user')
+                .then(function (response) {
+                    vm.users = response.data
+                })
+                .catch(function (error) {
+                    console.log(error);
+                });
+            },
+
+            formatDate(date) {
+            return moment(date).format("hh:mm a")
+            }
+
+        },
+        mounted(){
+            this.getUser()
+            socket.emit('join-user', {"name": "admin", "room": "admin"})
+        }
+
+    });
+</script>
+</html>

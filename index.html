@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Chat Mal</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.2/css/all.min.css"
+    integrity="sha512-HK5fgLBL+xu6dm/Ii3z4xhlSUyZgTT9tuc/hSrtw6uzJOvgRr2a9jyxxT1ely+B+xFAmJKVSTbpM/CuL7qxO8w==" crossorigin="anonymous" />
+</head>
+<body>
+    <div id="app">
+        <div class="container">
+            <div class="col-lg-12 ">
+
+                <div v-if="ready">
+                    <p v-for="user in info">
+                        {{user.username}} {{user.type}}
+                    </p>
+                </div>
+
+                <div v-if="!ready">
+                    <h4>Enter your username</h4>
+                    <form @submit.prevent="addUser">
+                        <div class="form-group row">
+                            <input type="text" class="form-control col-9" v-model="username"
+                                placeholder="Enter username here">
+                            <input type="submit" value="Join" class="btn btn-sm btn-info ml-1">
+
+                        </div>
+                    </form>
+                </div>
+                <h2 v-else>{{username}}</h2>
+                <ul class="list-group" v-if="ready">
+                    <li class="list-group-item" v-for="user in users" @click="chatFriend(user)">{{user.name}}
+                        <i class="fas fa-user-check"></i>
+                    </li>
+                </ul>
+
+                <div class="card bg-info mt-4" v-if="chatOpen">
+                    <div class="card-header text-white">
+                        <h4>My Chat App <span class="float-right">Chat With Ko Lu Chaw</span></h4>
+                    </div>
+                    <ul class="list-group list-group-flush text-right">
+                        <small v-if="typing" class="text-white">Ko Lu Chaw is typing</small>
+                        <li class="list-group-item" v-for="message in messages">
+                            <span :class="{'float-left':message.type === 1}">
+                                {{message.message}}
+                                <small v-if="message.user">:{{message.user}}</small>
+                                <small v-else>:Ko Lu Chaw</small>
+                            </span>
+                        </li>
+                    </ul>
+
+                    <div class="card-body">
+                        <form @submit.prevent="send">
+                            <div class="form-group">
+                                <input type="text" class="form-control" v-model="newMessage"
+                                    placeholder="Enter message here">
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+</body>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/vue/2.6.10/vue.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.21.1/axios.min.js" integrity="sha512-bZS47S7sPOxkjU/4Bt0zrhEtWx0y0CRkhEp8IckzK+ltifIIE9EMIMTuT/mEzoIMewUINruDBIR/jJnbguonqQ==" crossorigin="anonymous"></script>
+<script src="/socket.io/socket.io.js"></script>
+
+<script>
+    var socket = io();
+    let vue = new Vue({
+        el: '#app',
+
+        data: {
+            newMessage: null,
+            messages: [],
+            users: [],
+            online: [],
+            friend: [],
+            typing: false,
+            username: null,
+            ready: false,
+            info: [],
+            chatOpen: false,
+            chatWith: '',
+            room: '',
+            connections: 0,
+        },
+
+        created() {
+            window.onbeforeunload = () => {
+                if(this.room != ""){
+                    socket.emit('leave', {"name": this.username, "room": this.room});
+                }
+            }
+
+            socket.on('message', (data) => {
+                this.messages.push({
+                    message: data.message,
+                    type: 1,
+                    user: data.user,
+                });
+            });
+
+            socket.on('abc', (data) => {
+                console.log(data)
+            });
+
+            socket.on('typing', (data) => {
+                console.log(data)
+                this.typing = data;
+            });
+
+
+            socket.on('stopTyping', () => {
+                this.typing = false;
+            });
+
+            socket.on('connections', (data) => {
+                this.connections = data;
+            });
+        },
+
+        watch: {
+            newMessage(value) {
+                value ? socket.emit('typing', {"name": this.username, "room": this.room}) : socket.emit('stopTyping', {"name": this.username, "room": this.room})
+            }
+        },
+
+        methods: {
+            send() {
+                this.messages.push({
+                    message: this.newMessage,
+                    type: 0,
+                    user: 'Me',
+                });
+
+                socket.emit('chat-message', {
+                    id: this.room,
+                    message: this.newMessage,
+                    user: this.username
+                });
+                this.newMessage = null;
+            },
+
+            chatFriend(data) {
+                let vm = this
+                vm.chatOpen = true;
+                vm.messages = []
+                vm.room = data.room_id
+                vm.chatWith = data.name
+                socket.emit('joinRoom', {"name": vm.username, "room": data.room_id})
+            },
+
+            addUser(){
+                this.ready = true
+                let vm = this
+                axios.post('https://chatmal.codetoyou.com/user', {
+                    name: vm.username,
+                })
+                .then(function (response) {
+                    vm.chatOpen = true;
+                    vm.messages = []
+                    vm.room = response.data.room_id
+                    vm.chatWith = response.data.name
+                    socket.emit('joinRoom', {"name": response.data.name, "room": response.data.room_id, "status": response.data.status})
+                })
+                .catch(function (error) {
+                    console.log(error);
+                });
+            },
+
+            isOnline: function(data) {
+                let vm = this
+                if(vm.online.includes(data)){
+                    return "Friend"
+                }else{
+                    return "No Friend"
+                }
+            },
+
+            getUser() {
+                let vm = this
+                axios.get('https://chatmal.codetoyou.com/user')
+                .then(function (response) {
+                    vm.users = response.data
+                })
+                .catch(function (error) {
+                    console.log(error);
+                });
+            }
+
+        },
+        mounted(){
+
+        }
+
+    });
+</script>
+
+</html>
